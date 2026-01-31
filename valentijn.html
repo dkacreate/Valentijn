@@ -1,0 +1,353 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Pearl, wil je mijn Valentijn zijn?</title>
+  <style>
+    :root{
+      --bg1:#ffdde1;
+      --bg2:#ee9ca7;
+      --card: rgba(255,255,255,.78);
+      --text:#222;
+      --yes:#ff4d6d;
+      --yesHover:#ff2d55;
+      --no:#374151;
+      --shadow: 0 18px 50px rgba(0,0,0,.18);
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:var(--text)}
+    body{
+      display:grid;place-items:center;overflow:hidden;
+      background:
+        radial-gradient(circle at 18% 20%, rgba(255,255,255,.9) 0 10%, transparent 11%),
+        radial-gradient(circle at 82% 30%, rgba(255,255,255,.8) 0 8%, transparent 9%),
+        radial-gradient(circle at 25% 82%, rgba(255,255,255,.85) 0 7%, transparent 8%),
+        linear-gradient(135deg,var(--bg1),var(--bg2));
+    }
+    .card{
+      width:min(760px,92vw);
+      background:var(--card);
+      border:1px solid rgba(255,255,255,.6);
+      backdrop-filter: blur(10px);
+      border-radius:24px;
+      padding:28px 24px 22px;
+      box-shadow:var(--shadow);
+      position:relative;
+      text-align:center;
+    }
+    h1{
+      margin:0 0 10px;
+      font-size:clamp(1.6rem,4vw,2.35rem);
+      letter-spacing:-0.02em;
+    }
+    p{margin:0 0 18px;font-size:1.05rem;opacity:.9}
+
+    .stage{
+      position:relative;
+      height:260px;
+      margin-top:10px;
+      border-radius:18px;
+      background:rgba(255,255,255,.48);
+      border:1px dashed rgba(0,0,0,.14);
+      overflow:hidden;
+    }
+
+    .btn{
+      appearance:none;border:none;cursor:pointer;
+      font-weight:750;font-size:1.05rem;
+      padding:14px 18px;border-radius:14px;
+      box-shadow:0 10px 22px rgba(0,0,0,.12);
+      transition: transform .12s ease, filter .12s ease, background .12s ease;
+      user-select:none; touch-action: manipulation;
+      will-change: transform, left, top;
+    }
+    .btn:active{transform:scale(.98)}
+
+    #yesBtn{
+      background:var(--yes); color:#fff;
+      position:absolute; left:22%; top:62%;
+      transform:translate(-50%,-50%);
+    }
+    #yesBtn:hover{background:var(--yesHover);filter:brightness(1.02)}
+
+    /* Mooie, vloeiende nee-knop animatie */
+    #noBtn{
+      background:rgba(55,65,81,.96); color:#fff;
+      position:absolute; left:72%; top:62%;
+      transform:translate(-50%,-50%);
+      transition:
+        left .20s cubic-bezier(.2,.9,.25,1),
+        top  .20s cubic-bezier(.2,.9,.25,1),
+        transform .12s ease;
+    }
+    #noBtn.runaway{
+      transform:translate(-50%,-50%) rotate(1.2deg);
+      filter:brightness(1.03);
+    }
+
+    .result{
+      margin-top:14px;
+      min-height:56px;
+      display:grid;place-items:center;
+      font-size:1.08rem;font-weight:700;
+    }
+
+    /* Bericht-bubble */
+    .bubble{
+      position:absolute;
+      left:50%;
+      top:18px;
+      transform:translateX(-50%);
+      background:rgba(255,255,255,.92);
+      border:1px solid rgba(0,0,0,.08);
+      box-shadow:0 10px 26px rgba(0,0,0,.12);
+      border-radius:16px;
+      padding:10px 14px;
+      font-weight:700;
+      opacity:0;
+      pointer-events:none;
+      transition: opacity .25s ease, transform .25s ease;
+      max-width:min(520px,86%);
+    }
+    .bubble.show{
+      opacity:1;
+      transform:translateX(-50%) translateY(0);
+    }
+    .bubble.hide{
+      opacity:0;
+      transform:translateX(-50%) translateY(-6px);
+    }
+
+    .hearts{position:absolute;inset:0;pointer-events:none;opacity:.9}
+    .heart{
+      position:absolute;font-size:18px;
+      animation: floatUp 2.2s ease-in forwards;
+      filter: drop-shadow(0 8px 12px rgba(0,0,0,.15));
+    }
+    @keyframes floatUp{
+      0%{transform:translateY(0) scale(.9);opacity:0}
+      10%{opacity:1}
+      100%{transform:translateY(-240px) scale(1.15);opacity:0}
+    }
+
+    .hidden{display:none}
+    .footer{margin-top:8px;font-size:.92rem;opacity:.7}
+  </style>
+</head>
+<body>
+  <main class="card" role="main">
+    <h1>💘 Pearl, wil je de Valentijn van Dishano zijn?</h1>
+    <p>Maak een keuze… maar ik denk dat ik het antwoord al weet 😄</p>
+
+    <div class="stage" id="stage" aria-label="keuzegebied">
+      <div class="bubble" id="bubble" aria-live="polite"></div>
+
+      <button class="btn" id="yesBtn" type="button">Ja 😍</button>
+      <button class="btn" id="noBtn" type="button">Nee 🙈</button>
+
+      <div class="hearts" id="hearts"></div>
+    </div>
+
+    <div class="result" id="result" aria-live="polite"></div>
+    <div class="footer">probeer maar eens “Nee” te pakken 😘</div>
+  </main>
+
+  <script>
+    const stage  = document.getElementById("stage");
+    const noBtn  = document.getElementById("noBtn");
+    const yesBtn = document.getElementById("yesBtn");
+    const result = document.getElementById("result");
+    const hearts = document.getElementById("hearts");
+    const bubble = document.getElementById("bubble");
+
+    const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
+    const dist  = (x1,y1,x2,y2) => Math.hypot(x1-x2, y1-y2);
+
+    // Speelse berichtjes (incl. de zin die je vroeg)
+    const messages = [
+      "waar denk je heen te gaan poppie? 😏",
+      "Je weet toch dat dit niet werkt? 😌",
+      "Ik weet dat je geen nee kan zeggen tegen mij 😘😘",
+      "klik gewoon Ja 😍",
+      "Nope. Nice try 🤭",
+      "Oké… nog één kans 😇"
+    ];
+
+    let msgIndex = 0;
+    let lastMsgAt = 0;
+    let chaseCount = 0;
+
+    function showMessage(text) {
+      bubble.textContent = text;
+      bubble.classList.remove("hide");
+      bubble.classList.add("show");
+
+      // Auto hide
+      clearTimeout(showMessage._t);
+      showMessage._t = setTimeout(() => {
+        bubble.classList.remove("show");
+        bubble.classList.add("hide");
+      }, 1400);
+    }
+
+    function maybeShowChaseMessage() {
+      const now = Date.now();
+      if (now - lastMsgAt < 900) return; // niet te spammy
+      lastMsgAt = now;
+
+      // Elke ~2 “pogingen” een bericht
+      if (chaseCount % 2 === 0) {
+        showMessage(messages[msgIndex % messages.length]);
+        msgIndex++;
+      }
+    }
+
+    function moveNoTo(x, y) {
+      noBtn.classList.add("runaway");
+      noBtn.style.left = `${x}px`;
+      noBtn.style.top  = `${y}px`;
+
+      clearTimeout(moveNoTo._t);
+      moveNoTo._t = setTimeout(() => noBtn.classList.remove("runaway"), 220);
+    }
+
+    function randomPosition(avoidX = null, avoidY = null) {
+      const s = stage.getBoundingClientRect();
+      const b = noBtn.getBoundingClientRect();
+
+      const pad = 16;
+      const minX = pad + b.width / 2;
+      const maxX = s.width - pad - b.width / 2;
+      const minY = pad + b.height / 2;
+      const maxY = s.height - pad - b.height / 2;
+
+      if (maxX <= minX || maxY <= minY) return null;
+
+      let x, y, tries = 0;
+      do {
+        x = minX + Math.random() * (maxX - minX);
+        y = minY + Math.random() * (maxY - minY);
+        tries++;
+      } while (
+        avoidX !== null && avoidY !== null &&
+        dist(x, y, avoidX, avoidY) < 140 &&
+        tries < 18
+      );
+
+      return { x, y };
+    }
+
+    function handleChase(clientX, clientY) {
+      const s = stage.getBoundingClientRect();
+      const b = noBtn.getBoundingClientRect();
+
+      // cursor relatief in stage
+      const x = clientX - s.left;
+      const y = clientY - s.top;
+
+      // knop-middelpunt relatief
+      const bx = (b.left - s.left) + b.width / 2;
+      const by = (b.top  - s.top)  + b.height / 2;
+
+      const d = dist(x, y, bx, by);
+
+      // Als je in “trigger zone” komt, glijdt hij weg in een richting van de cursor af
+      if (d < 130) {
+        chaseCount++;
+        maybeShowChaseMessage();
+
+        // vluchtvector (weg van cursor), met een beetje randomness
+        const vx = (bx - x) / (d || 1);
+        const vy = (by - y) / (d || 1);
+
+        const push = 130 + Math.random() * 70; // hoe ver 'ie wegschuift
+        let targetX = bx + vx * push + (Math.random() * 40 - 20);
+        let targetY = by + vy * push + (Math.random() * 40 - 20);
+
+        // clamp binnen stage
+        const halfW = b.width / 2;
+        const halfH = b.height / 2;
+        targetX = clamp(targetX, 16 + halfW, s.width - 16 - halfW);
+        targetY = clamp(targetY, 16 + halfH, s.height - 16 - halfH);
+
+        moveNoTo(targetX, targetY);
+
+        // Als hij alsnog te dicht is: randomize verder weg
+        setTimeout(() => {
+          const nb = noBtn.getBoundingClientRect();
+          const nbx = (nb.left - s.left) + nb.width / 2;
+          const nby = (nb.top  - s.top)  + nb.height / 2;
+          if (dist(x, y, nbx, nby) < 105) {
+            const p = randomPosition(x, y);
+            if (p) moveNoTo(p.x, p.y);
+          }
+        }, 0);
+      }
+    }
+
+    // Desktop
+    stage.addEventListener("mousemove", (e) => handleChase(e.clientX, e.clientY));
+    noBtn.addEventListener("mouseenter", (e) => {
+      chaseCount++;
+      maybeShowChaseMessage();
+      const s = stage.getBoundingClientRect();
+      const p = randomPosition(e.clientX - s.left, e.clientY - s.top);
+      if (p) moveNoTo(p.x, p.y);
+    });
+
+    // Mobiel
+    stage.addEventListener("touchstart", (e) => {
+      const t = e.touches[0];
+      handleChase(t.clientX, t.clientY);
+    }, { passive:true });
+    stage.addEventListener("touchmove", (e) => {
+      const t = e.touches[0];
+      handleChase(t.clientX, t.clientY);
+    }, { passive:true });
+
+    // Ja = succes + hartjes + leuke tekst
+    yesBtn.addEventListener("click", () => {
+      result.textContent = "Yesss Pearl! 💖 Dishano en Pearl — Valentijnsduo 😘";
+      popHearts(20);
+      showMessage("Wist ik wel 😘💘");
+
+      noBtn.classList.add("hidden");
+      yesBtn.disabled = true;
+      yesBtn.style.cursor = "default";
+      yesBtn.textContent = "Ja 😍 (gekozen)";
+    });
+
+    // Als ze toch via toetsenbord “Nee” activeert: nog steeds weg
+    noBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      chaseCount++;
+      maybeShowChaseMessage();
+      const p = randomPosition();
+      if (p) moveNoTo(p.x, p.y);
+    });
+
+    function popHearts(count=12){
+      const s = stage.getBoundingClientRect();
+      for(let i=0;i<count;i++){
+        const el = document.createElement("div");
+        el.className = "heart";
+        el.textContent = Math.random()<0.5 ? "💖" : "💘";
+        el.style.left = `${20 + Math.random() * (s.width - 40)}px`;
+        el.style.top  = `${155 + Math.random() * 70}px`;
+        el.style.animationDelay = `${Math.random() * .25}s`;
+        hearts.appendChild(el);
+        el.addEventListener("animationend", () => el.remove());
+      }
+    }
+
+    // Startpositie
+    window.addEventListener("load", () => {
+      const p = randomPosition();
+      if (p) moveNoTo(p.x, p.y);
+      // eerste kleine tease
+      setTimeout(() => showMessage("Oké Pearl… kies maar 😇"), 450);
+    });
+  </script>
+</body>
+</html>
